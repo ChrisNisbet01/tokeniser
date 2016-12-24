@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-#define STRING_VERSION 0
+#define STRING_VERSION 1
 #define UNUSED(arg) (void)(arg)
 
 #if STRING_VERSION == 0
@@ -14,7 +14,7 @@ static int my_getc(void * const arg)
 #else
 typedef struct my_getc_context_st
 {
-    char const * const current_char;
+    char const * current_char;
 } my_getc_context_st;
 
 static int my_getc(void * const arg)
@@ -75,6 +75,9 @@ int main(int const argc, char * const * const argv)
             break;
         case tokeniser_result_error:
             printf("got error\n");
+            break;
+        case tokeniser_result_init_not_called:
+            printf("call init first!\n");
             break;
     }
 
