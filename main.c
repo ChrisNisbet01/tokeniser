@@ -41,28 +41,22 @@ static void print_tokens(tokens_st const * const tokens)
     unsigned int index;
     size_t const count = tokens_count(tokens);
 
+    printf("\r\nshow %d tokens\n", count);
     for (index = 0; index < count; index++)
     {
-        printf("token %u: %s", index, tokens_get_token(tokens, index));
+        printf("token %u: %s\n", index, tokens_get_token(tokens, index));
     }
 }
 
-int main(int const argc, char * const * const argv)
+static void do_tokenise_test(char const * const string)
 {
-    UNUSED(argc);
-    UNUSED(argv);
     tokeniser_st * const tokeniser = tokeniser_alloc();
     tokens_st * tokens;
-
-#if STRING_VERSION
     my_getc_context_st my_getc_context;
 
-    my_getc_context.current_char = "test";
+    my_getc_context.current_char = string;
 
     tokeniser_init(tokeniser, my_getc, &my_getc_context);
-#else
-    tokeniser_init(tokeniser, my_getc, stdin);
-#endif
 
     switch (tokeniser_tokenise(tokeniser, &tokens))
     {
@@ -72,6 +66,8 @@ int main(int const argc, char * const * const argv)
             break;
         case tokeniser_result_incomplete_token:
             printf("got incomplete token\n");
+            print_tokens(tokens);
+            tokens_free(tokens);
             break;
         case tokeniser_result_error:
             printf("got error\n");
@@ -82,6 +78,17 @@ int main(int const argc, char * const * const argv)
     }
 
     tokeniser_free(tokeniser);
+}
+
+int main(int const argc, char * const * const argv)
+{
+    UNUSED(argc);
+    UNUSED(argv);
+
+#if STRING_VERSION
+    do_tokenise_test("test | > < abc' | \"|\" def 'ghi \"|\" 123\" 456 \"789 \"double quoted\" \'single quoted\' \"double quoted embedded single quote \'\" \'single quoted embedded double quote \"\'");
+    do_tokenise_test("test \"double quotedincomplete");
+#endif
 
     return 0;
 }
