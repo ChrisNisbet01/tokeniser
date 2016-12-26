@@ -42,10 +42,15 @@ done:
     return partial;
 }
 
-static bool new_token(char const * const token, size_t const start_index, size_t const end_index, void * const user_arg)
+static bool new_token(char const * const token, 
+                      size_t const start_index, 
+                      size_t const end_index, 
+                      char const quote_char,
+                      void * const user_arg)
 {
     UNUSED(start_index);
     UNUSED(end_index);
+    UNUSED(quote_char);
     tokeniser_context_st * const tokeniser_context = user_arg;
     char * const partial = partial_strdup(&tokeniser_context->line[start_index], end_index - start_index);
 
