@@ -20,7 +20,7 @@ typedef int (* getc_cb)(void * const user_context);
 typedef bool (* new_token_cb)(char const * const token, /* The token. */
                               size_t const start_index, /* The starting index of the token in the supplied characters. */
                               size_t const end_index, /* The ending index of the token in the supplied characters. */
-                              char const quote_char, /* If the token was quoted, this character wil indicate the quote character (else is '\0'). */
+                              char const quote_char, /* If the token was quoted, this character will indicate the quote character (else is '\0'). */
                               void * const user_arg); /* The user arg supplied to tokeniser_feed. */
 
 /*  

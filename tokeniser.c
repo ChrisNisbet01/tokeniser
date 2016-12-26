@@ -151,7 +151,7 @@ static void tokeniser_state_quoted_token(fsm_class * const fsm, fsm_event const 
                   tokeniser->expected_close_quote); 
         Fsm_state_transition(fsm, tokeniser_state_no_token);
     }
-    else if (event->current_char == TOKENISER_EOF || event->current_char == '\n')
+    else if (event->current_char == TOKENISER_EOF || event->current_char == '\0' || event->current_char == '\n')
     {
         got_token(tokeniser, 
                   tokeniser->char_count,
@@ -179,7 +179,7 @@ static void tokeniser_state_quoted_regular_token(fsm_class * const fsm, fsm_even
         /* Received the matching close quote character. */
         Fsm_state_transition(fsm, tokeniser_state_regular_token);
     }
-    else if (event->current_char == TOKENISER_EOF || event->current_char == '\n')
+    else if (event->current_char == TOKENISER_EOF || event->current_char == '\0' || event->current_char == '\n')
     {
         /* No more input. */
         got_token(tokeniser, 
@@ -204,7 +204,7 @@ static void tokeniser_state_regular_token(fsm_class * const fsm, fsm_event const
     {
         /* Ignore. */
     }
-    else if (event->current_char == TOKENISER_EOF || event->current_char == '\n')
+    else if (event->current_char == TOKENISER_EOF || event->current_char == '\0' || event->current_char == '\n')
     {
         got_token(tokeniser, 
                   tokeniser->char_count,
@@ -236,7 +236,7 @@ static void tokeniser_state_no_token(fsm_class * const fsm, fsm_event const * co
     tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
     tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
 
-    if (event->current_char == TOKENISER_EOF || event->current_char == '\n')
+    if (event->current_char == TOKENISER_EOF || event->current_char == '\0' || event->current_char == '\n')
     {
         tokeniser_result_set(tokeniser, tokeniser_result_ok);
         Fsm_state_transition(fsm, tokeniser_state_done);
