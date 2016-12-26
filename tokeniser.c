@@ -1,5 +1,5 @@
 #include "tokeniser.h"
-#include "fsm.h"
+#include "fsm_class.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,9 +9,14 @@
 
 #define UNUSED(arg) (void)(arg)
 
+#if !defined(container_of)
+#define container_of(ptr, type, member) \
+                    (type *)((char *)(ptr) - (char *) &((type *)0)->member)
+#endif
+
 struct tokeniser_st
 {
-    Fsm fsm;
+    fsm_class fsm;
 
     new_token_cb user_callback;
     void * user_arg;
@@ -24,14 +29,23 @@ struct tokeniser_st
 
 typedef struct tokeniser_event_st
 {
-    Event _super;
-    int current_char;
+    fsm_event _super; /* The base 'class'. */
+    int current_char; /* Tokeniser specific event information. */
 } tokeniser_event_st;
 
-static void tokeniser_state_init(tokeniser_st * const tokeniser, Event const * const event_fsm);
-static void tokeniser_state_no_token(tokeniser_st * const tokeniser, Event const * const event_fsm);
-static void tokeniser_state_done(tokeniser_st * const tokeniser, Event const * const event_fsm);
-static void tokeniser_state_regular_token(tokeniser_st * const tokeniser, Event const * const event_fsm);
+/* Macros that remove the need for the FSM 'class' types to be 
+ * the first field in the child 'classes' that use them. 
+*/
+#define TOKENISER_EVENT_TO_FSM_EVENT(event) (&event->_super)
+#define FSM_EVENT_TO_TOKENISER_EVENT(event) container_of(event, tokeniser_event_st, _super)
+
+#define TOKENISER_TO_FSM(tokeniser) (&tokeniser->fsm)
+#define FSM_TO_TOKENISER(fsm) container_of(fsm, tokeniser_st, fsm)
+
+static void tokeniser_state_init(fsm_class * const fsm, fsm_event const * const event_fsm);
+static void tokeniser_state_no_token(fsm_class * const fsm, fsm_event const * const event_fsm);
+static void tokeniser_state_done(fsm_class * const fsm, fsm_event const * const event_fsm);
+static void tokeniser_state_regular_token(fsm_class * const fsm, fsm_event const * const event_fsm);
 
 static void str_extend(char * * const str, char const new_char)
 {
@@ -87,17 +101,18 @@ static void tokeniser_result_set(tokeniser_st * const tokeniser, tokeniser_resul
     tokeniser->result = result;
 }
 
-static void tokeniser_state_init(tokeniser_st * const tokeniser, Event const * const event_fsm)
+static void tokeniser_state_init(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
     UNUSED(event_fsm);
 
     printf("Initialising tokeniser\n");
 
-    Fsm_state_transition(&tokeniser->fsm, tokeniser_state_no_token);
+    Fsm_state_transition(fsm, tokeniser_state_no_token);
 }
 
-static void tokeniser_state_done(tokeniser_st * const tokeniser, Event const * const event_fsm)
+static void tokeniser_state_done(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
     UNUSED(tokeniser);
     UNUSED(event_fsm);
 
@@ -105,9 +120,27 @@ static void tokeniser_state_done(tokeniser_st * const tokeniser, Event const * c
     tokeniser->result = tokeniser_result_already_done;
 }
 
-static void tokeniser_state_quoted_token(tokeniser_st * const tokeniser, Event const * const event_fsm)
+static void got_token(tokeniser_st * const tokeniser, size_t const end_index)
 {
-    tokeniser_event_st * const event = (tokeniser_event_st *)event_fsm;
+    /* Called when a complete token has just been created. 
+     * Notify the user if they are interested, and free the token 
+     * just created. 
+     */
+    if (tokeniser->user_callback != NULL)
+    {
+        tokeniser->user_callback(tokeniser->current_token,
+                                 tokeniser->token_start,
+                                 end_index,
+                                 tokeniser->user_arg);
+    }
+    current_token_free(tokeniser); 
+
+}
+
+static void tokeniser_state_quoted_token(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
 
     if (event->current_char == '\r')
     {
@@ -115,27 +148,14 @@ static void tokeniser_state_quoted_token(tokeniser_st * const tokeniser, Event c
     }
     else if (event->current_char == tokeniser->expected_close_quote)
     {
-        if (tokeniser->user_callback != NULL)
-        {
-            tokeniser->user_callback(tokeniser->current_token,
-                                     tokeniser->token_start, 
-                                     tokeniser->char_count + 1, /* Include the closing quote. */
-                                     tokeniser->user_arg);
-        }
-        current_token_free(tokeniser); 
-        Fsm_state_transition(&tokeniser->fsm, tokeniser_state_no_token);
+        got_token(tokeniser, tokeniser->char_count + 1); /* Include the closing quote in the end index. */
+        Fsm_state_transition(fsm, tokeniser_state_no_token);
     }
     else if (event->current_char == TOKENISER_EOF || event->current_char == '\n')
     {
-        if (tokeniser->user_callback != NULL)
-        {
-            tokeniser->user_callback(tokeniser->current_token,
-                                     tokeniser->token_start, 
-                                     tokeniser->char_count, tokeniser->user_arg);
-        }
-        current_token_free(tokeniser);
+        got_token(tokeniser, tokeniser->char_count);
+        Fsm_state_transition(fsm, tokeniser_state_done);
         tokeniser_result_set(tokeniser, tokeniser_result_incomplete_token);
-        Fsm_state_transition(&tokeniser->fsm, tokeniser_state_done);
     }
     else 
     {
@@ -143,9 +163,10 @@ static void tokeniser_state_quoted_token(tokeniser_st * const tokeniser, Event c
     }
 }
 
-static void tokeniser_state_quoted_regular_token(tokeniser_st * const tokeniser, Event const * const event_fsm)
+static void tokeniser_state_quoted_regular_token(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
-    tokeniser_event_st * const event = (tokeniser_event_st *)event_fsm;
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
 
     if (event->current_char == '\r')
     {
@@ -153,30 +174,27 @@ static void tokeniser_state_quoted_regular_token(tokeniser_st * const tokeniser,
     }
     else if (event->current_char == tokeniser->expected_close_quote)
     {
-        Fsm_state_transition(&tokeniser->fsm, tokeniser_state_regular_token);
+        /* Received the matching close quote character. */
+        Fsm_state_transition(fsm, tokeniser_state_regular_token);
     }
     else if (event->current_char == TOKENISER_EOF || event->current_char == '\n')
     {
-        if (tokeniser->user_callback != NULL)
-        {
-            tokeniser->user_callback(tokeniser->current_token,
-                                     tokeniser->token_start, 
-                                     tokeniser->char_count,
-                                     tokeniser->user_arg);
-        }
-        current_token_free(tokeniser);
+        /* No more input. */
+        got_token(tokeniser, tokeniser->char_count);
+        Fsm_state_transition(fsm, tokeniser_state_done);
         tokeniser_result_set(tokeniser, tokeniser_result_incomplete_token);
-        Fsm_state_transition(&tokeniser->fsm, tokeniser_state_done);
     }
     else
     {
+        /* Add the new char into the current token. */
         str_extend(&tokeniser->current_token, event->current_char);
     }
 }
 
-static void tokeniser_state_regular_token(tokeniser_st * const tokeniser, Event const * const event_fsm)
+static void tokeniser_state_regular_token(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
-    tokeniser_event_st * const event = (tokeniser_event_st *)event_fsm;
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
 
     if (event->current_char == '\r')
     {
@@ -184,33 +202,20 @@ static void tokeniser_state_regular_token(tokeniser_st * const tokeniser, Event 
     }
     else if (event->current_char == TOKENISER_EOF || event->current_char == '\n')
     {
-        if (tokeniser->user_callback != NULL)
-        {
-            tokeniser->user_callback(tokeniser->current_token,
-                                     tokeniser->token_start, 
-                                     tokeniser->char_count,
-                                     tokeniser->user_arg);
-        }
-        current_token_free(tokeniser);
+        got_token(tokeniser, tokeniser->char_count);
+        Fsm_state_transition(fsm, tokeniser_state_done);
         tokeniser_result_set(tokeniser, tokeniser_result_ok);
-        Fsm_state_transition(&tokeniser->fsm, tokeniser_state_done);
     }
     else if (event->current_char == '\"' || event->current_char == '\'')
     {
         tokeniser->expected_close_quote = event->current_char;
-        Fsm_state_transition(&tokeniser->fsm, tokeniser_state_quoted_regular_token);
+        Fsm_state_transition(fsm, tokeniser_state_quoted_regular_token);
     }
     else if (isspace(event->current_char))
     {
-        if (tokeniser->user_callback != NULL)
-        {
-            tokeniser->user_callback(tokeniser->current_token,
-                                     tokeniser->token_start, 
-                                     tokeniser->char_count,
-                                     tokeniser->user_arg);
-        }
+        got_token(tokeniser, tokeniser->char_count);
         current_token_free(tokeniser);
-        Fsm_state_transition(&tokeniser->fsm, tokeniser_state_no_token);
+        Fsm_state_transition(fsm, tokeniser_state_no_token);
     }
     else
     {
@@ -218,14 +223,15 @@ static void tokeniser_state_regular_token(tokeniser_st * const tokeniser, Event 
     }
 }
 
-static void tokeniser_state_no_token(tokeniser_st * const tokeniser, Event const * const event_fsm)
+static void tokeniser_state_no_token(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
-    tokeniser_event_st * const event = (tokeniser_event_st *)event_fsm;
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
 
     if (event->current_char == TOKENISER_EOF || event->current_char == '\n')
     {
         tokeniser_result_set(tokeniser, tokeniser_result_ok);
-        Fsm_state_transition(&tokeniser->fsm, tokeniser_state_done);
+        Fsm_state_transition(fsm, tokeniser_state_done);
     }
     else if (event->current_char == '\r' || isspace(event->current_char))
     {
@@ -235,12 +241,12 @@ static void tokeniser_state_no_token(tokeniser_st * const tokeniser, Event const
     {
         tokeniser->expected_close_quote = event->current_char;
         current_token_init(tokeniser, '\0');
-        Fsm_state_transition(&tokeniser->fsm, tokeniser_state_quoted_token);
+        Fsm_state_transition(fsm, tokeniser_state_quoted_token);
     }
     else
     {
         current_token_init(tokeniser, (char)event->current_char);
-        Fsm_state_transition(&tokeniser->fsm, tokeniser_state_regular_token);
+        Fsm_state_transition(fsm, tokeniser_state_regular_token);
     }
 }
 
@@ -261,13 +267,15 @@ done:
 
 void tokeniser_init(tokeniser_st * const tokeniser)
 {
+    fsm_class * const fsm = TOKENISER_TO_FSM(tokeniser);
+
     current_token_free(tokeniser);
     tokeniser->user_callback = NULL;
     tokeniser->user_arg = NULL;
     tokeniser->char_count = 0;
 
-    Fsm_constructor(&tokeniser->fsm, tokeniser_state_init);
-    Fsm_init(&tokeniser->fsm, NULL);
+    Fsm_constructor(fsm, tokeniser_state_init);
+    Fsm_init(fsm, NULL);
 }
 
 tokeniser_st * tokeniser_alloc(void)
@@ -286,9 +294,9 @@ done:
     return tokeniser;
 }
 
-static void tokeniser_dispatch(tokeniser_st * const tokeniser, tokeniser_event_st const * const tokeniser_event)
+static inline void tokeniser_dispatch(tokeniser_st * const tokeniser, tokeniser_event_st const * const tokeniser_event)
 {
-    Fsm_dispatch(&tokeniser->fsm, tokeniser_event);
+    Fsm_dispatch(TOKENISER_TO_FSM(tokeniser), TOKENISER_EVENT_TO_FSM_EVENT(tokeniser_event));
 }
 
 tokeniser_result_t tokeniser_feed(tokeniser_st * const tokeniser,
@@ -317,7 +325,7 @@ tokeniser_result_t tokeniser_feed(tokeniser_st * const tokeniser,
 
     tokeniser_dispatch(tokeniser, &tokeniser_event);
 
-    tokeniser->char_count++; /* Update the number of characters we've processed. */
+    tokeniser->char_count++; /* Update the number of characters processed. */
 
     result = tokeniser->result;
 
