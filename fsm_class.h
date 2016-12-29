@@ -16,8 +16,8 @@ typedef void (* fsm_state)(fsm_class * const fsm, fsm_event const * const event)
 
 /* Although it doesn't contain anything useful, and fsm_event 
  * structure is required in each child class event so that the 
- * macros below can work, and the fsm_state type defnition has a
- * proper type. 
+ * macros below can work, and the fsm_state type definition has 
+ * a proper type. 
  */
 struct fsm_event
 {
