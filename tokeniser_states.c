@@ -1,11 +1,23 @@
 #include "tokeniser_states.h"
 
 #include <ctype.h>
+#include <stdio.h>
 
-static void tokeniser_state_init(fsm_class * const fsm, fsm_event const * const event_fsm);
-static void tokeniser_state_no_token(fsm_class * const fsm, fsm_event const * const event_fsm);
-static void tokeniser_state_done(fsm_class * const fsm, fsm_event const * const event_fsm);
-static void tokeniser_state_regular_token(fsm_class * const fsm, fsm_event const * const event_fsm);
+static void tokeniser_state_entry(fsm_class * const fsm);
+static void tokeniser_state_exit(fsm_class * const fsm);
+static void tokeniser_state_init_handler(fsm_class * const fsm, fsm_event const * const event_fsm);
+static void tokeniser_state_no_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm);
+static void tokeniser_state_done_handler(fsm_class * const fsm, fsm_event const * const event_fsm);
+static void tokeniser_state_regular_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm);
+static void tokeniser_state_quoted_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm);
+static void tokeniser_state_quoted_regular_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm);
+
+DEFINE_STATE(tokeniser_state_init, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_init_handler);
+DEFINE_STATE(tokeniser_state_no_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_no_token_handler);
+DEFINE_STATE(tokeniser_state_done, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_done_handler);
+DEFINE_STATE(tokeniser_state_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_regular_token_handler);
+DEFINE_STATE(tokeniser_state_quoted_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_quoted_token_handler);
+DEFINE_STATE(tokeniser_state_quoted_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_quoted_regular_token_handler);
 
 static void got_token(tokeniser_st * const tokeniser, size_t const end_index, char const quote_char)
 {
@@ -24,7 +36,21 @@ static void got_token(tokeniser_st * const tokeniser, size_t const end_index, ch
     current_token_free(tokeniser);
 }
 
-static void tokeniser_state_init(fsm_class * const fsm, fsm_event const * const event_fsm)
+static void tokeniser_state_entry(fsm_class * const fsm)
+{
+    UNUSED(fsm);
+
+    printf("\r\nenter %s", Fsm_current_state(fsm)->name);
+}
+
+static void tokeniser_state_exit(fsm_class * const fsm)
+{
+    UNUSED(fsm);
+
+    printf("\r\nleave %s", Fsm_current_state(fsm)->name);
+}
+
+static void tokeniser_state_init_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
     /* Initial state. Unconditionally transition to the first 
      * working state. No events handled in this state. 
@@ -34,7 +60,7 @@ static void tokeniser_state_init(fsm_class * const fsm, fsm_event const * const 
     Fsm_state_transition(fsm, tokeniser_state_no_token);
 }
 
-static void tokeniser_state_done(fsm_class * const fsm, fsm_event const * const event_fsm)
+static void tokeniser_state_done_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
     /* The input line has been tokenised. No events handled in 
      * this state. 
@@ -45,7 +71,7 @@ static void tokeniser_state_done(fsm_class * const fsm, fsm_event const * const 
     tokeniser->result = tokeniser_result_already_done;
 }
 
-static void tokeniser_state_quoted_token(fsm_class * const fsm, fsm_event const * const event_fsm)
+static void tokeniser_state_quoted_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
     /* Inside a quoted ('\"' or '\''token. Append new chars to the 
      * current token until the closing quote character is received. 
@@ -80,7 +106,7 @@ static void tokeniser_state_quoted_token(fsm_class * const fsm, fsm_event const 
     }
 }
 
-static void tokeniser_state_quoted_regular_token(fsm_class * const fsm, fsm_event const * const event_fsm)
+static void tokeniser_state_quoted_regular_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
     /* Processing a regular token that contains embedded quotes 
      * (e.g. abc" def "ghi), and are within the quoted section of 
@@ -117,7 +143,7 @@ static void tokeniser_state_quoted_regular_token(fsm_class * const fsm, fsm_even
     }
 }
 
-static void tokeniser_state_regular_token(fsm_class * const fsm, fsm_event const * const event_fsm)
+static void tokeniser_state_regular_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
     /* Processing a regular, unquoted token. Append new chars to the 
      * current token. If the current char is a space, this signals 
@@ -160,7 +186,7 @@ static void tokeniser_state_regular_token(fsm_class * const fsm, fsm_event const
     }
 }
 
-static void tokeniser_state_no_token(fsm_class * const fsm, fsm_event const * const event_fsm)
+static void tokeniser_state_no_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
     /* Waiting for the start of a token. Ignore spaces. If the 
      * character is a quote this signifies the start of a quoted 

@@ -23,10 +23,11 @@ OUTFILE=$(OUTDIR)/tokeniser
 CFG_INC=
 CFG_LIB=
 CFG_OBJ=
-COMMON_OBJ=$(OUTDIR)/main.o $(OUTDIR)/tokeniser.o \
-	$(OUTDIR)/tokeniser_states.o $(OUTDIR)/tokens.o 
+COMMON_OBJ=$(OUTDIR)/fsm_class.o $(OUTDIR)/main.o \
+	$(OUTDIR)/tokeniser.o $(OUTDIR)/tokeniser_states.o \
+	$(OUTDIR)/tokens.o 
 OBJ=$(COMMON_OBJ) $(CFG_OBJ)
-ALL_OBJ=$(OUTDIR)/main.o $(OUTDIR)/tokeniser.o \
+ALL_OBJ=$(OUTDIR)/fsm_class.o $(OUTDIR)/main.o $(OUTDIR)/tokeniser.o \
 	$(OUTDIR)/tokeniser_states.o $(OUTDIR)/tokens.o 
 
 COMPILE=gcc -c   -g -Wall -Wextra -o "$(OUTDIR)/$(*F).o" $(CFG_INC) $<
@@ -66,10 +67,11 @@ OUTFILE=$(OUTDIR)/tokeniser
 CFG_INC=
 CFG_LIB=
 CFG_OBJ=
-COMMON_OBJ=$(OUTDIR)/main.o $(OUTDIR)/tokeniser.o \
-	$(OUTDIR)/tokeniser_states.o $(OUTDIR)/tokens.o 
+COMMON_OBJ=$(OUTDIR)/fsm_class.o $(OUTDIR)/main.o \
+	$(OUTDIR)/tokeniser.o $(OUTDIR)/tokeniser_states.o \
+	$(OUTDIR)/tokens.o 
 OBJ=$(COMMON_OBJ) $(CFG_OBJ)
-ALL_OBJ=$(OUTDIR)/main.o $(OUTDIR)/tokeniser.o \
+ALL_OBJ=$(OUTDIR)/fsm_class.o $(OUTDIR)/main.o $(OUTDIR)/tokeniser.o \
 	$(OUTDIR)/tokeniser_states.o $(OUTDIR)/tokens.o 
 
 COMPILE=gcc -c   -Wall -Wextra -o "$(OUTDIR)/$(*F).o" $(CFG_INC) $<

@@ -12,12 +12,27 @@ typedef struct fsm_class fsm_class;
 /* The user should define functions matching this type for 
  * each desired state. 
  */
-typedef void (* fsm_state)(fsm_class * const fsm, fsm_event const * const event);
+typedef void (* fsm_state_handler)(fsm_class * const fsm, fsm_event const * const event);
+
+typedef struct
+{
+    void (* entry)(fsm_class * const fsm);
+    void (* exit)(fsm_class * const fsm);
+    fsm_state_handler handler;
+    char const * name;
+} fsm_state;
+
+#define DEFINE_STATE(STATE, ENTRY, EXIT, HANDLER) \
+    fsm_state const STATE  = { \
+        .entry = ENTRY, \
+        .exit = EXIT, \
+        .handler = HANDLER, \
+        .name = #STATE \
+    }
 
 /* Although it doesn't contain anything useful, and fsm_event 
- * structure is required in each child class event so that the 
- * macros below can work, and the fsm_state type definition has 
- * a proper type. 
+ * structure is required in each derived event class fsm_state 
+ * handler type definition has a proper event type. 
  */
 struct fsm_event
 {
@@ -27,15 +42,22 @@ struct fsm_event
 /* Finite State Machine base class */
 struct fsm_class
 {
-    fsm_state current_state; /* the current state */
+    fsm_state const * current_state; /* the current state */
 };
 
-/* "inlined" methods of Fsm class */
-#define Fsm_dispatch(me_, e_) ((me_)->current_state)((me_), (e_))
-#define Fsm_init(me_, e_) Fsm_dispatch((me_), (e_))
+/* "inlined" methods of FSM class */
+#define Fsm_dispatch(fsm, e_) ((fsm)->current_state->handler)((fsm), (e_))
+#define Fsm_init(fsm, e_) Fsm_dispatch((fsm), (e_))
 
-#define Fsm_state_transition(me_, new_state) ((me_)->current_state = (new_state))
-#define Fsm_constructor(me_, init_) Fsm_state_transition((me_), (init_))
-#define Fsm_current_state(me_) (me_)->current_state
+#define Fsm_state_transition(fsm, new_state) fsm_state_transition((fsm), &(new_state))
+
+#define Fsm_constructor(fsm, init_) do \
+            { \
+                (fsm)->current_state = NULL; \
+                Fsm_state_transition((fsm), (init_)); \
+            } \
+            while (0)
+
+#define Fsm_current_state(fsm) (fsm)->current_state
 
 #endif /* __FSM_CLASS_H__ */
