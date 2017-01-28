@@ -11,6 +11,16 @@
                     (type *)((char *)(ptr) - (char *) &((type *)0)->member)
 #endif
 
+typedef enum event_code_t
+{
+    event_init,
+    event_nul,
+    event_space,
+    event_single_quote,
+    event_double_quote,
+    event_regular_char
+} event_code_t;
+
 struct tokeniser_st
 {
     fsm_class fsm; /* The base FSM 'class' */
@@ -27,6 +37,8 @@ struct tokeniser_st
 typedef struct tokeniser_event_st
 {
     fsm_event _super; /* The base event 'class'. */
+
+    event_code_t code;
     int current_char; /* Tokeniser specific event information. */
 } tokeniser_event_st;
 

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 
 void str_extend(char * * const str, char const new_char)
 {
@@ -100,6 +101,34 @@ done:
     return tokeniser;
 }
 
+static event_code_t tokeniser_event_from_char_get(char const ch)
+{
+    event_code_t event_code;
+
+    if (ch == '\0')
+    {
+        event_code = event_nul;
+    }
+    else if (isspace((int)ch))
+    {
+        event_code = event_space;
+    }
+    else if (ch == '\'')
+    {
+        event_code = event_single_quote;
+    }
+    else if (ch == '\"')
+    {
+        event_code = event_double_quote;
+    }
+    else
+    {
+        event_code = event_regular_char;
+    }
+
+    return event_code;
+}
+
 tokeniser_result_t tokeniser_feed(tokeniser_st * const tokeniser,
                                   int const next_char,
                                   new_token_cb const user_callback,
@@ -122,7 +151,9 @@ tokeniser_result_t tokeniser_feed(tokeniser_st * const tokeniser,
      */
     tokeniser->result = tokeniser_result_continue;
 
-    tokeniser_event.current_char = next_char;
+    /* Construct the event. */
+    tokeniser_event.code = tokeniser_event_from_char_get(next_char);
+    tokeniser_event.current_char = next_char; 
 
     tokeniser_dispatch(tokeniser, &tokeniser_event);
 

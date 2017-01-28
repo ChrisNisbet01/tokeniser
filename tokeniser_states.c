@@ -3,21 +3,86 @@
 #include <ctype.h>
 #include <stdio.h>
 
+//#define TOKENISER_STATE_DEBUG
+
+#if defined(TOKENISER_STATE_DEBUG)
+#define STATE_PRINTF(fmt, ...) do {printf(fmt, ##__VA_ARGS__);} while(0)
+#else
+#define STATE_PRINTF(fmt, ...) do {} while(0)
+#endif
+
 static void tokeniser_state_entry(fsm_class * const fsm);
 static void tokeniser_state_exit(fsm_class * const fsm);
-static void tokeniser_state_init_handler(fsm_class * const fsm, fsm_event const * const event_fsm);
-static void tokeniser_state_no_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm);
-static void tokeniser_state_done_handler(fsm_class * const fsm, fsm_event const * const event_fsm);
-static void tokeniser_state_regular_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm);
-static void tokeniser_state_quoted_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm);
-static void tokeniser_state_quoted_regular_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm);
 
-DEFINE_STATE(tokeniser_state_init, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_init_handler);
-DEFINE_STATE(tokeniser_state_no_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_no_token_handler);
-DEFINE_STATE(tokeniser_state_done, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_done_handler);
-DEFINE_STATE(tokeniser_state_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_regular_token_handler);
-DEFINE_STATE(tokeniser_state_quoted_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_quoted_token_handler);
-DEFINE_STATE(tokeniser_state_quoted_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_quoted_regular_token_handler);
+static void tokeniser_state_init_transition(fsm_class * const fsm);
+static void tokeniser_state_no_token_transition(fsm_class * const fsm);
+static void tokeniser_state_done_transition(fsm_class * const fsm);
+static void tokeniser_state_regular_token_transition(fsm_class * const fsm);
+static void tokeniser_state_single_quoted_token_transition(fsm_class * const fsm);
+static void tokeniser_state_double_quoted_token_transition(fsm_class * const fsm);
+static void tokeniser_state_single_quoted_regular_token_transition(fsm_class * const fsm);
+static void tokeniser_state_double_quoted_regular_token_transition(fsm_class * const fsm);
+
+DEFINE_STATE(tokeniser_state_init, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_init_transition);
+DEFINE_STATE(tokeniser_state_no_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_no_token_transition);
+DEFINE_STATE(tokeniser_state_done, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_done_transition);
+DEFINE_STATE(tokeniser_state_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_regular_token_transition);
+DEFINE_STATE(tokeniser_state_single_quoted_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_single_quoted_token_transition);
+DEFINE_STATE(tokeniser_state_double_quoted_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_double_quoted_token_transition);
+DEFINE_STATE(tokeniser_state_single_quoted_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_single_quoted_regular_token_transition);
+DEFINE_STATE(tokeniser_state_double_quoted_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_double_quoted_regular_token_transition);
+
+static void default_init_event_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    UNUSED(fsm);
+    UNUSED(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
+}
+
+static void default_nul_event_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    UNUSED(fsm);
+    UNUSED(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
+}
+
+static void default_space_event_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    UNUSED(fsm);
+    UNUSED(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
+}
+
+static void default_single_quote_event_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    UNUSED(fsm);
+    UNUSED(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
+}
+
+static void default_double_quote_event_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    UNUSED(fsm);
+    UNUSED(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
+}
+
+static void default_regular_char_event_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    UNUSED(fsm);
+    UNUSED(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
+}
+
+static void default_event_handlers_set(event_handler_st * const event_handlers)
+{
+    event_handlers->init = default_init_event_handler;
+    event_handlers->nul = default_nul_event_handler;
+    event_handlers->space = default_space_event_handler;
+    event_handlers->single_quote = default_single_quote_event_handler;
+    event_handlers->double_quote = default_double_quote_event_handler;
+    event_handlers->regular_char = default_regular_char_event_handler;
+}
 
 static void got_token(tokeniser_st * const tokeniser, size_t const end_index, char const quote_char)
 {
@@ -40,24 +105,33 @@ static void tokeniser_state_entry(fsm_class * const fsm)
 {
     UNUSED(fsm);
 
-    printf("\r\nenter %s", Fsm_current_state(fsm)->name);
+    STATE_PRINTF("enter %s\n", Fsm_current_state(fsm)->name);
 }
 
 static void tokeniser_state_exit(fsm_class * const fsm)
 {
     UNUSED(fsm);
 
-    printf("\r\nleave %s", Fsm_current_state(fsm)->name);
+    STATE_PRINTF("leave %s\n", Fsm_current_state(fsm)->name);
 }
 
-static void tokeniser_state_init_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+static void tokeniser_state_init_init_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
-    /* Initial state. Unconditionally transition to the first 
-     * working state. No events handled in this state. 
+    /* Initial state. Transition to the first 
+     * working state when processing the 'init' event.
      */
     UNUSED(event_fsm);
 
+    STATE_PRINTF("%s\n", __FUNCTION__);
     Fsm_state_transition(fsm, tokeniser_state_no_token);
+}
+
+static void tokeniser_state_init_transition(fsm_class * const fsm)
+{
+    printf("%s\n", __FUNCTION__);
+    default_event_handlers_set(&fsm->current_state->event_handlers);
+
+    fsm->current_state->event_handlers.init = tokeniser_state_init_init_handler;
 }
 
 static void tokeniser_state_done_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -67,11 +141,58 @@ static void tokeniser_state_done_handler(fsm_class * const fsm, fsm_event const 
      */
     tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
     UNUSED(event_fsm);
-
+    STATE_PRINTF("%s\n", __FUNCTION__);
     tokeniser->result = tokeniser_result_already_done;
 }
 
-static void tokeniser_state_quoted_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+static void tokeniser_state_done_transition(fsm_class * const fsm)
+{
+    STATE_PRINTF("%s\n", __FUNCTION__);
+    default_event_handlers_set(&fsm->current_state->event_handlers);
+
+    fsm->current_state->event_handlers.nul = tokeniser_state_done_handler;
+    fsm->current_state->event_handlers.space = tokeniser_state_done_handler;
+    fsm->current_state->event_handlers.single_quote = tokeniser_state_done_handler;
+    fsm->current_state->event_handlers.double_quote = tokeniser_state_done_handler;
+    fsm->current_state->event_handlers.regular_char = tokeniser_state_done_handler;
+}
+
+static void tokeniser_state_quoted_token_nul_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    /* Inside a quoted ('\"' or '\''token. Append new chars to the 
+     * current token until the closing quote character is received. 
+     * If the line ends before the closing quote is received, set 
+     * the result to incomplete token. 
+     */
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    UNUSED(event_fsm); 
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    got_token(tokeniser,
+              tokeniser->char_count,
+              '\0');
+    Fsm_state_transition(fsm, tokeniser_state_done);
+    tokeniser_result_set(tokeniser, tokeniser_result_incomplete_token);
+}
+
+static void tokeniser_state_quoted_token_quote_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    /* Inside a quoted ('\"' or '\''token. Append new chars to the 
+     * current token until the closing quote character is received. 
+     * If the line ends before the closing quote is received, set 
+     * the result to incomplete token. 
+     */
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    UNUSED(event_fsm); 
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    got_token(tokeniser,
+              tokeniser->char_count + 1, /* Include the closing quote in the end index. */
+              tokeniser->expected_close_quote);
+    Fsm_state_transition(fsm, tokeniser_state_no_token);
+}
+
+static void tokeniser_state_quoted_token_other_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
     /* Inside a quoted ('\"' or '\''token. Append new chars to the 
      * current token until the closing quote character is received. 
@@ -80,33 +201,74 @@ static void tokeniser_state_quoted_token_handler(fsm_class * const fsm, fsm_even
      */
     tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
     tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
 
-    if (event->current_char == '\r')
-    {
-        /* Ignore. */
-    }
-    else if (event->current_char == tokeniser->expected_close_quote)
-    {
-        got_token(tokeniser,
-                  tokeniser->char_count + 1, /* Include the closing quote in the end index. */
-                  tokeniser->expected_close_quote);
-        Fsm_state_transition(fsm, tokeniser_state_no_token);
-    }
-    else if (event->current_char == TOKENISER_EOF || event->current_char == '\0' || event->current_char == '\n')
-    {
-        got_token(tokeniser,
-                  tokeniser->char_count,
-                  '\0');
-        Fsm_state_transition(fsm, tokeniser_state_done);
-        tokeniser_result_set(tokeniser, tokeniser_result_incomplete_token);
-    }
-    else
-    {
-        str_extend(&tokeniser->current_token, event->current_char);
-    }
+    str_extend(&tokeniser->current_token, event->current_char);
 }
 
-static void tokeniser_state_quoted_regular_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+static void tokeniser_state_single_quoted_token_transition(fsm_class * const fsm)
+{    
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    default_event_handlers_set(&fsm->current_state->event_handlers);
+
+    fsm->current_state->event_handlers.nul = tokeniser_state_quoted_token_nul_handler;
+    fsm->current_state->event_handlers.space = tokeniser_state_quoted_token_other_handler;
+    fsm->current_state->event_handlers.single_quote = tokeniser_state_quoted_token_quote_handler;
+    fsm->current_state->event_handlers.double_quote = tokeniser_state_quoted_token_other_handler;
+    fsm->current_state->event_handlers.regular_char = tokeniser_state_quoted_token_other_handler;
+}
+
+static void tokeniser_state_double_quoted_token_transition(fsm_class * const fsm)
+{
+    STATE_PRINTF("%s\n", __FUNCTION__);
+    default_event_handlers_set(&fsm->current_state->event_handlers);
+
+    fsm->current_state->event_handlers.nul = tokeniser_state_quoted_token_nul_handler;
+    fsm->current_state->event_handlers.space = tokeniser_state_quoted_token_other_handler;
+    fsm->current_state->event_handlers.single_quote = tokeniser_state_quoted_token_other_handler;
+    fsm->current_state->event_handlers.double_quote = tokeniser_state_quoted_token_quote_handler;
+    fsm->current_state->event_handlers.regular_char = tokeniser_state_quoted_token_other_handler;
+}
+
+static void tokeniser_state_quoted_regular_token_nul_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    /* Processing a regular token that contains embedded quotes 
+     * (e.g. abc" def "ghi), and are within the quoted section of 
+     * the token. Append new chars to the current token until the 
+     * closing quote character is received. If the line ends before 
+     * the closing quote is received, set the result to incomplete 
+     * token. 
+     */
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    UNUSED(event_fsm); 
+
+    STATE_PRINTF("%s\n", __FUNCTION__);
+    /* No more input. */
+    got_token(tokeniser,
+              tokeniser->char_count,
+              '\0');
+    Fsm_state_transition(fsm, tokeniser_state_done);
+    tokeniser_result_set(tokeniser, tokeniser_result_incomplete_token);
+}
+
+static void tokeniser_state_quoted_regular_token_quote_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    /* Processing a regular token that contains embedded quotes 
+     * (e.g. abc" def "ghi), and are within the quoted section of 
+     * the token. Append new chars to the current token until the 
+     * closing quote character is received. If the line ends before 
+     * the closing quote is received, set the result to incomplete 
+     * token. 
+     */
+    UNUSED(event_fsm); 
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    /* Received the matching close quote character. */
+    Fsm_state_transition(fsm, tokeniser_state_regular_token);
+}
+
+static void tokeniser_state_quoted_regular_token_other_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
     /* Processing a regular token that contains embedded quotes 
      * (e.g. abc" def "ghi), and are within the quoted section of 
@@ -117,33 +279,59 @@ static void tokeniser_state_quoted_regular_token_handler(fsm_class * const fsm, 
      */
     tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
     tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
 
-    if (event->current_char == '\r')
-    {
-        /* Ignore. */
-    }
-    else if (event->current_char == tokeniser->expected_close_quote)
-    {
-        /* Received the matching close quote character. */
-        Fsm_state_transition(fsm, tokeniser_state_regular_token);
-    }
-    else if (event->current_char == TOKENISER_EOF || event->current_char == '\0' || event->current_char == '\n')
-    {
-        /* No more input. */
-        got_token(tokeniser,
-                  tokeniser->char_count,
-                  '\0');
-        Fsm_state_transition(fsm, tokeniser_state_done);
-        tokeniser_result_set(tokeniser, tokeniser_result_incomplete_token);
-    }
-    else
-    {
-        /* Add the new char into the current token. */
-        str_extend(&tokeniser->current_token, event->current_char);
-    }
+    /* Add the new char into the current token. */
+    str_extend(&tokeniser->current_token, event->current_char);
 }
 
-static void tokeniser_state_regular_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+static void tokeniser_state_single_quoted_regular_token_transition(fsm_class * const fsm)
+{
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    default_event_handlers_set(&fsm->current_state->event_handlers);
+
+    fsm->current_state->event_handlers.nul = tokeniser_state_quoted_regular_token_nul_handler;
+    fsm->current_state->event_handlers.space = tokeniser_state_quoted_regular_token_other_handler;
+    fsm->current_state->event_handlers.single_quote = tokeniser_state_quoted_regular_token_quote_handler;
+    fsm->current_state->event_handlers.double_quote = tokeniser_state_quoted_regular_token_other_handler;
+    fsm->current_state->event_handlers.regular_char = tokeniser_state_quoted_regular_token_other_handler;
+}
+
+static void tokeniser_state_double_quoted_regular_token_transition(fsm_class * const fsm)
+{
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    default_event_handlers_set(&fsm->current_state->event_handlers);
+
+    fsm->current_state->event_handlers.nul = tokeniser_state_quoted_regular_token_nul_handler;
+    fsm->current_state->event_handlers.space = tokeniser_state_quoted_regular_token_other_handler;
+    fsm->current_state->event_handlers.single_quote = tokeniser_state_quoted_regular_token_other_handler;
+    fsm->current_state->event_handlers.double_quote = tokeniser_state_quoted_regular_token_quote_handler;
+    fsm->current_state->event_handlers.regular_char = tokeniser_state_quoted_regular_token_other_handler;
+}
+
+static void tokeniser_state_regular_token_nul_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    /* Processing a regular, unquoted token. Append new chars to the 
+     * current token. If the current char is a space, this signals 
+     * the end of the token. If the current char is a quote ('\"' or 
+     * '\'' this signifies the start of a quoted regular token. 
+     * If EOF or NUL or NEWLINE is received, this signifies the end 
+     * of the input.  
+     */
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    UNUSED(event_fsm); 
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    got_token(tokeniser,
+              tokeniser->char_count,
+              '\0');
+    Fsm_state_transition(fsm, tokeniser_state_done);
+    tokeniser_result_set(tokeniser, tokeniser_result_ok);
+}
+
+static void tokeniser_state_regular_token_single_quote_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
     /* Processing a regular, unquoted token. Append new chars to the 
      * current token. If the current char is a space, this signals 
@@ -154,39 +342,107 @@ static void tokeniser_state_regular_token_handler(fsm_class * const fsm, fsm_eve
      */
     tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
     tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
 
-    if (event->current_char == '\r')
-    {
-        /* Ignore. */
-    }
-    else if (event->current_char == TOKENISER_EOF || event->current_char == '\0' || event->current_char == '\n')
-    {
-        got_token(tokeniser,
-                  tokeniser->char_count,
-                  '\0');
-        Fsm_state_transition(fsm, tokeniser_state_done);
-        tokeniser_result_set(tokeniser, tokeniser_result_ok);
-    }
-    else if (event->current_char == '\"' || event->current_char == '\'')
-    {
-        tokeniser->expected_close_quote = event->current_char;
-        Fsm_state_transition(fsm, tokeniser_state_quoted_regular_token);
-    }
-    else if (isspace(event->current_char))
-    {
-        got_token(tokeniser,
-                  tokeniser->char_count,
-                  '\0');
-        current_token_free(tokeniser);
-        Fsm_state_transition(fsm, tokeniser_state_no_token);
-    }
-    else
-    {
-        str_extend(&tokeniser->current_token, event->current_char);
-    }
+    tokeniser->expected_close_quote = event->current_char;
+    Fsm_state_transition(fsm, tokeniser_state_single_quoted_regular_token);
 }
 
-static void tokeniser_state_no_token_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+static void tokeniser_state_regular_token_double_quote_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    /* Processing a regular, unquoted token. Append new chars to the 
+     * current token. If the current char is a space, this signals 
+     * the end of the token. If the current char is a quote ('\"' or 
+     * '\'' this signifies the start of a quoted regular token. 
+     * If EOF or NUL or NEWLINE is received, this signifies the end 
+     * of the input.  
+     */
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    tokeniser->expected_close_quote = event->current_char;
+    Fsm_state_transition(fsm, tokeniser_state_double_quoted_regular_token);
+}
+
+static void tokeniser_state_regular_token_space_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    /* Processing a regular, unquoted token. Append new chars to the 
+     * current token. If the current char is a space, this signals 
+     * the end of the token. If the current char is a quote ('\"' or 
+     * '\'' this signifies the start of a quoted regular token. 
+     * If EOF or NUL or NEWLINE is received, this signifies the end 
+     * of the input.  
+     */
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    UNUSED(event_fsm); 
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    got_token(tokeniser,
+              tokeniser->char_count,
+              '\0');
+    current_token_free(tokeniser);
+    Fsm_state_transition(fsm, tokeniser_state_no_token);
+}
+
+static void tokeniser_state_regular_token_regular_char_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    /* Processing a regular, unquoted token. Append new chars to the 
+     * current token. If the current char is a space, this signals 
+     * the end of the token. If the current char is a quote ('\"' or 
+     * '\'' this signifies the start of a quoted regular token. 
+     * If EOF or NUL or NEWLINE is received, this signifies the end 
+     * of the input.  
+     */
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    str_extend(&tokeniser->current_token, event->current_char);
+}
+
+static void tokeniser_state_regular_token_transition(fsm_class * const fsm)
+{
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    default_event_handlers_set(&fsm->current_state->event_handlers);
+
+    fsm->current_state->event_handlers.nul = tokeniser_state_regular_token_nul_handler;
+    fsm->current_state->event_handlers.space = tokeniser_state_regular_token_space_handler;
+    fsm->current_state->event_handlers.single_quote = tokeniser_state_regular_token_single_quote_handler;
+    fsm->current_state->event_handlers.double_quote = tokeniser_state_regular_token_double_quote_handler;
+    fsm->current_state->event_handlers.regular_char = tokeniser_state_regular_token_regular_char_handler;
+}
+
+static void tokeniser_state_no_token_nul_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    /* Waiting for the start of a token. Ignore spaces. If the 
+     * character is a quote this signifies the start of a quoted 
+     * token. EOF, NUL and NEWLINE signal the end of input. Other 
+     * regular characters signal the start of a token. 
+     */
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    UNUSED(event_fsm); 
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    tokeniser_result_set(tokeniser, tokeniser_result_ok);
+    Fsm_state_transition(fsm, tokeniser_state_done);
+}
+
+static void tokeniser_state_no_token_space_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    /* Waiting for the start of a token. Ignore spaces. If the 
+     * character is a quote this signifies the start of a quoted 
+     * token. EOF, NUL and NEWLINE signal the end of input. Other 
+     * regular characters signal the start of a token. 
+     */
+    UNUSED(fsm);
+    UNUSED(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+}
+
+static void tokeniser_state_no_token_single_quote_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
     /* Waiting for the start of a token. Ignore spaces. If the 
      * character is a quote this signifies the start of a quoted 
@@ -195,38 +451,93 @@ static void tokeniser_state_no_token_handler(fsm_class * const fsm, fsm_event co
      */
     tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
     tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
 
-    if (event->current_char == TOKENISER_EOF || event->current_char == '\0' || event->current_char == '\n')
-    {
-        tokeniser_result_set(tokeniser, tokeniser_result_ok);
-        Fsm_state_transition(fsm, tokeniser_state_done);
-    }
-    else if (event->current_char == '\r' || isspace(event->current_char))
-    {
-        /* Ignore. */
-    }
-    else if (event->current_char == '\"' || event->current_char == '\'')
-    {
-        tokeniser->expected_close_quote = event->current_char;
-        current_token_init(tokeniser, '\0');
-        Fsm_state_transition(fsm, tokeniser_state_quoted_token);
-    }
-    else
-    {
-        current_token_init(tokeniser, (char)event->current_char);
-        Fsm_state_transition(fsm, tokeniser_state_regular_token);
-    }
+    tokeniser->expected_close_quote = event->current_char;
+    current_token_init(tokeniser, '\0');
+    Fsm_state_transition(fsm, tokeniser_state_single_quoted_token);
+}
+
+static void tokeniser_state_no_token_double_quote_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    /* Waiting for the start of a token. Ignore spaces. If the 
+     * character is a quote this signifies the start of a quoted 
+     * token. EOF, NUL and NEWLINE signal the end of input. Other 
+     * regular characters signal the start of a token. 
+     */
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    tokeniser->expected_close_quote = event->current_char;
+    current_token_init(tokeniser, '\0');
+    Fsm_state_transition(fsm, tokeniser_state_double_quoted_token);
+}
+
+static void tokeniser_state_no_token_regular_char_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
+{
+    /* Waiting for the start of a token. Ignore spaces. If the 
+     * character is a quote this signifies the start of a quoted 
+     * token. EOF, NUL and NEWLINE signal the end of input. Other 
+     * regular characters signal the start of a token. 
+     */
+    tokeniser_st * const tokeniser = FSM_TO_TOKENISER(fsm);
+    tokeniser_event_st * const event = FSM_EVENT_TO_TOKENISER_EVENT(event_fsm);
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    current_token_init(tokeniser, (char)event->current_char);
+    Fsm_state_transition(fsm, tokeniser_state_regular_token);
+}
+
+static void tokeniser_state_no_token_transition(fsm_class * const fsm)
+{
+    STATE_PRINTF("%s\n", __FUNCTION__);
+
+    default_event_handlers_set(&fsm->current_state->event_handlers);
+
+    fsm->current_state->event_handlers.nul = tokeniser_state_no_token_nul_handler;
+    fsm->current_state->event_handlers.space = tokeniser_state_no_token_space_handler;
+    fsm->current_state->event_handlers.single_quote = tokeniser_state_no_token_single_quote_handler;
+    fsm->current_state->event_handlers.double_quote = tokeniser_state_no_token_double_quote_handler;
+    fsm->current_state->event_handlers.regular_char = tokeniser_state_no_token_regular_char_handler;
 }
 
 void tokeniser_dispatch(tokeniser_st * const tokeniser, tokeniser_event_st const * const tokeniser_event)
 {
-    Fsm_dispatch(TOKENISER_TO_FSM(tokeniser), TOKENISER_EVENT_TO_FSM_EVENT(tokeniser_event));
+    fsm_class * const fsm = TOKENISER_TO_FSM(tokeniser);
+    fsm_event const * const event_fsm = TOKENISER_EVENT_TO_FSM_EVENT(tokeniser_event);
+
+    STATE_PRINTF("%s code %d %c\n", __FUNCTION__, tokeniser_event->code, tokeniser_event->current_char);
+
+    switch (tokeniser_event->code)
+    {
+        case event_init:
+            fsm->current_state->event_handlers.init(fsm, event_fsm);
+            break;
+        case event_nul:
+            fsm->current_state->event_handlers.nul(fsm, event_fsm);
+            break;
+        case event_space:
+            fsm->current_state->event_handlers.space(fsm, event_fsm);
+            break;
+        case event_single_quote:
+            fsm->current_state->event_handlers.single_quote(fsm, event_fsm);
+            break;
+        case event_double_quote:
+            fsm->current_state->event_handlers.double_quote(fsm, event_fsm);
+            break;
+        case event_regular_char:
+            fsm->current_state->event_handlers.regular_char(fsm, event_fsm);
+            break;
+    }
 }
 
 void tokeniser_init_fsm(tokeniser_st * const tokeniser)
 {
+    tokeniser_event_st event;
     fsm_class * const fsm = TOKENISER_TO_FSM(tokeniser);
 
     Fsm_constructor(fsm, tokeniser_state_init);
-    Fsm_init(fsm, NULL);
+    event.code = event_init;
+    tokeniser_dispatch(tokeniser, &event);
 }

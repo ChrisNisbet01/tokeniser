@@ -13,20 +13,32 @@ typedef struct fsm_class fsm_class;
  * each desired state. 
  */
 typedef void (* fsm_state_handler)(fsm_class * const fsm, fsm_event const * const event);
+typedef void (* fsm_transition_handler)(fsm_class * const fsm); 
+
+typedef struct event_handler_st
+{
+    fsm_state_handler init;
+    fsm_state_handler nul;
+    fsm_state_handler space;
+    fsm_state_handler single_quote;
+    fsm_state_handler double_quote;
+    fsm_state_handler regular_char;
+} event_handler_st;
 
 typedef struct
 {
     void (* entry)(fsm_class * const fsm);
     void (* exit)(fsm_class * const fsm);
-    fsm_state_handler handler;
+    fsm_transition_handler transition_handler;
     char const * name;
+    event_handler_st event_handlers;
 } fsm_state;
 
-#define DEFINE_STATE(STATE, ENTRY, EXIT, HANDLER) \
-    fsm_state const STATE  = { \
+#define DEFINE_STATE(STATE, ENTRY, EXIT, TRANSITION) \
+    fsm_state STATE  = { \
         .entry = ENTRY, \
         .exit = EXIT, \
-        .handler = HANDLER, \
+        .transition_handler = TRANSITION, \
         .name = #STATE \
     }
 
@@ -42,12 +54,13 @@ struct fsm_event
 /* Finite State Machine base class */
 struct fsm_class
 {
-    fsm_state const * current_state; /* the current state */
+    fsm_state * current_state;
 };
+
+void fsm_state_transition(fsm_class * const fsm, fsm_state * const new_state);
 
 /* "inlined" methods of FSM class */
 #define Fsm_dispatch(fsm, e_) ((fsm)->current_state->handler)((fsm), (e_))
-#define Fsm_init(fsm, e_) Fsm_dispatch((fsm), (e_))
 
 #define Fsm_state_transition(fsm, new_state) fsm_state_transition((fsm), &(new_state))
 

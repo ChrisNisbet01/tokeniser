@@ -66,35 +66,21 @@ static void do_tokenise_test(char const * const string)
 {
     tokeniser_st * const tokeniser = tokeniser_alloc();
     char const * pch = string;
+    char next_char;
+
     tokeniser_result_t tokeniser_result;
     tokeniser_context_st tokeniser_context;
 
     tokeniser_context.tokens = tokens_alloc();
     tokeniser_context.line = string;
 
-    while (*pch)
+    do
     {
-        tokeniser_result = tokeniser_feed(tokeniser, *pch, new_token, &tokeniser_context);
+        next_char = *pch;
         pch++;
-        if (tokeniser_result == tokeniser_result_ok)
-        {
-            if (*pch != '\0')
-            {
-                printf("\r\ngot OK result before the end of the input line");
-            }
-            break;
-        }
-        else if (tokeniser_result != tokeniser_result_continue)
-        {
-            printf("\r\nhad error tokenising %s at position %zu", string, (size_t)(pch - string));
-            goto done;
-        }
+        tokeniser_result = tokeniser_feed(tokeniser, next_char, new_token, &tokeniser_context);
     }
-    if (tokeniser_result != tokeniser_result_ok)
-    {
-        /* Indicate that we have no more tokens to feed in. */
-        tokeniser_result = tokeniser_feed(tokeniser, TOKENISER_EOF, new_token, &tokeniser_context);
-    }
+    while(tokeniser_result == tokeniser_result_continue && next_char != '\0');
 
     switch (tokeniser_result)
     {
@@ -114,7 +100,6 @@ static void do_tokenise_test(char const * const string)
             break;
     }
 
-done:
     tokens_free(tokeniser_context.tokens);
     tokeniser_free(tokeniser);
 }

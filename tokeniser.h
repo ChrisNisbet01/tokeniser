@@ -13,7 +13,6 @@ typedef enum tokeniser_result_t
     tokeniser_result_error /* Some other error. */
 } tokeniser_result_t;
 
-#define TOKENISER_EOF (-1) /* Feed this to the tokeniser to indicate that no more characters will be fed to it. */
 
 typedef struct tokeniser_st tokeniser_st;
 typedef int (* getc_cb)(void * const user_context);
