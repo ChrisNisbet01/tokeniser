@@ -6,41 +6,47 @@
  */ 
 typedef struct fsm_event fsm_event;
 
-/* The user should include one of these in the child 'class'. */
+/* The user should include one of these in the child 
+ * FSM 'class'. 
+ */
 typedef struct fsm_class fsm_class;
 
-/* The user should define functions matching this type for 
- * each desired state. 
+/* The application is expected to define a 
+ * struct event_handler_st and pass a reference to an instance 
+ * of one to Fsm_constructor() before the FSM is first used. 
+ * Done this way as the FSM class doesn't need to know the 
+ * internals of the event_handler_st, just that there is one. 
  */
-typedef void (* fsm_state_handler)(fsm_class * const fsm, fsm_event const * const event);
-typedef void (* fsm_transition_handler)(fsm_class * const fsm); 
+typedef struct event_handler_st event_handler_st;
 
-typedef struct event_handler_st
+/* The user should define functions matching these types for 
+ * each desired state. Note that exit and entry handlers are 
+ * optional but the transition handler is not. The transition 
+ * handler is called whenever the state machine transitions to 
+ * the state specified in fsm_state_transition().
+ */
+typedef void (* fsm_state_handler)(fsm_class * const fsm, fsm_event const * const event_fsm);
+typedef void (* fsm_entry_handler)(fsm_class * const fsm);
+typedef void (* fsm_exit_handler)(fsm_class * const fsm);
+typedef void (* fsm_transition_handler)(event_handler_st * const event_handlers);
+
+/* The application is expected to define one of these for each 
+ * state. The DEFINE_STATE macro below can be used to simplify 
+ * this process. 
+ */
+typedef struct
 {
-    fsm_state_handler init;
-    fsm_state_handler nul;
-    fsm_state_handler space;
-    fsm_state_handler single_quote;
-    fsm_state_handler double_quote;
-    fsm_state_handler regular_char;
-} event_handler_st;
+    fsm_entry_handler entry;
+    fsm_exit_handler exit;
+    fsm_transition_handler transition_handler;
+    char const * name;
+} fsm_state_config;
 
 typedef struct
 {
-    void (* entry)(fsm_class * const fsm);
-    void (* exit)(fsm_class * const fsm);
-    fsm_transition_handler transition_handler;
-    char const * name;
-    event_handler_st event_handlers;
-} fsm_state;
-
-#define DEFINE_STATE(STATE, ENTRY, EXIT, TRANSITION) \
-    fsm_state STATE  = { \
-        .entry = ENTRY, \
-        .exit = EXIT, \
-        .transition_handler = TRANSITION, \
-        .name = #STATE \
-    }
+    fsm_state_config const * config;
+    event_handler_st * event_handlers;
+} fsm_state; 
 
 /* Although it doesn't contain anything useful, and fsm_event 
  * structure is required in each derived event class fsm_state 
@@ -54,23 +60,32 @@ struct fsm_event
 /* Finite State Machine base class */
 struct fsm_class
 {
-    fsm_state * current_state;
+    fsm_state current_state;
 };
 
-void fsm_state_transition(fsm_class * const fsm, fsm_state * const new_state);
+void fsm_state_transition(fsm_class * const fsm, fsm_state_config const * const new_state);
+
+/* Helper macro to create a state definition. */
+#define DEFINE_STATE(STATE, ENTRY, EXIT, TRANSITION) \
+    fsm_state_config STATE  = { \
+        .entry = ENTRY, \
+        .exit = EXIT, \
+        .transition_handler = TRANSITION, \
+        .name = #STATE \
+    }
+
 
 /* "inlined" methods of FSM class */
-#define Fsm_dispatch(fsm, e_) ((fsm)->current_state->handler)((fsm), (e_))
-
-#define Fsm_state_transition(fsm, new_state) fsm_state_transition((fsm), &(new_state))
-
-#define Fsm_constructor(fsm, init_) do \
+#define Fsm_constructor(fsm, init_, handlers) do \
             { \
-                (fsm)->current_state = NULL; \
-                Fsm_state_transition((fsm), (init_)); \
+                (fsm)->current_state.config = NULL; \
+                (fsm)->current_state.event_handlers = (handlers); \
+                fsm_state_transition((fsm), (init_)); \
             } \
             while (0)
 
-#define Fsm_current_state(fsm) (fsm)->current_state
+#define Fsm_state_name(state) (state)->config->name
+#define Fsm_current_state(fsm) &(fsm)->current_state
+#define Fsm_current_state_name(fsm) Fsm_state_name(Fsm_current_state((fsm)))
 
 #endif /* __FSM_CLASS_H__ */

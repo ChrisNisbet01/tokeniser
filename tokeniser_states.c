@@ -11,26 +11,38 @@
 #define STATE_PRINTF(fmt, ...) do {} while(0)
 #endif
 
+struct event_handler_st
+{
+    fsm_state_handler init;
+    fsm_state_handler nul;
+    fsm_state_handler space;
+    fsm_state_handler single_quote;
+    fsm_state_handler double_quote;
+    fsm_state_handler regular_char;
+}; 
+
 static void tokeniser_state_entry(fsm_class * const fsm);
 static void tokeniser_state_exit(fsm_class * const fsm);
 
-static void tokeniser_state_init_transition(fsm_class * const fsm);
-static void tokeniser_state_no_token_transition(fsm_class * const fsm);
-static void tokeniser_state_done_transition(fsm_class * const fsm);
-static void tokeniser_state_regular_token_transition(fsm_class * const fsm);
-static void tokeniser_state_single_quoted_token_transition(fsm_class * const fsm);
-static void tokeniser_state_double_quoted_token_transition(fsm_class * const fsm);
-static void tokeniser_state_single_quoted_regular_token_transition(fsm_class * const fsm);
-static void tokeniser_state_double_quoted_regular_token_transition(fsm_class * const fsm);
+static void tokeniser_state_init_transition(event_handler_st * const event_handlers);
+static void tokeniser_state_no_token_transition(event_handler_st * const event_handlers);
+static void tokeniser_state_done_transition(event_handler_st * const event_handlers);
+static void tokeniser_state_regular_token_transition(event_handler_st * const event_handlers);
+static void tokeniser_state_single_quoted_token_transition(event_handler_st * const event_handlers);
+static void tokeniser_state_double_quoted_token_transition(event_handler_st * const event_handlers);
+static void tokeniser_state_single_quoted_regular_token_transition(event_handler_st * const event_handlers);
+static void tokeniser_state_double_quoted_regular_token_transition(event_handler_st * const event_handlers);
 
-DEFINE_STATE(tokeniser_state_init, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_init_transition);
-DEFINE_STATE(tokeniser_state_no_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_no_token_transition);
-DEFINE_STATE(tokeniser_state_done, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_done_transition);
-DEFINE_STATE(tokeniser_state_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_regular_token_transition);
-DEFINE_STATE(tokeniser_state_single_quoted_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_single_quoted_token_transition);
-DEFINE_STATE(tokeniser_state_double_quoted_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_double_quoted_token_transition);
-DEFINE_STATE(tokeniser_state_single_quoted_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_single_quoted_regular_token_transition);
-DEFINE_STATE(tokeniser_state_double_quoted_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_double_quoted_regular_token_transition);
+static const DEFINE_STATE(tokeniser_state_init, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_init_transition);
+static const DEFINE_STATE(tokeniser_state_no_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_no_token_transition);
+static const DEFINE_STATE(tokeniser_state_done, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_done_transition);
+static const DEFINE_STATE(tokeniser_state_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_regular_token_transition);
+static const DEFINE_STATE(tokeniser_state_single_quoted_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_single_quoted_token_transition);
+static const DEFINE_STATE(tokeniser_state_double_quoted_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_double_quoted_token_transition);
+static const DEFINE_STATE(tokeniser_state_single_quoted_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_single_quoted_regular_token_transition);
+static const DEFINE_STATE(tokeniser_state_double_quoted_regular_token, tokeniser_state_entry, tokeniser_state_exit, tokeniser_state_double_quoted_regular_token_transition);
+
+static event_handler_st event_handlers;
 
 static void default_init_event_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
 {
@@ -105,14 +117,14 @@ static void tokeniser_state_entry(fsm_class * const fsm)
 {
     UNUSED(fsm);
 
-    STATE_PRINTF("enter %s\n", Fsm_current_state(fsm)->name);
+    STATE_PRINTF("enter %s\n", Fsm_current_state_name(fsm));
 }
 
 static void tokeniser_state_exit(fsm_class * const fsm)
 {
     UNUSED(fsm);
 
-    STATE_PRINTF("leave %s\n", Fsm_current_state(fsm)->name);
+    STATE_PRINTF("leave %s\n", Fsm_current_state_name(fsm));
 }
 
 static void tokeniser_state_init_init_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -123,15 +135,15 @@ static void tokeniser_state_init_init_handler(fsm_class * const fsm, fsm_event c
     UNUSED(event_fsm);
 
     STATE_PRINTF("%s\n", __FUNCTION__);
-    Fsm_state_transition(fsm, tokeniser_state_no_token);
+    fsm_state_transition(fsm, &tokeniser_state_no_token);
 }
 
-static void tokeniser_state_init_transition(fsm_class * const fsm)
+static void tokeniser_state_init_transition(event_handler_st * const event_handlers)
 {
-    printf("%s\n", __FUNCTION__);
-    default_event_handlers_set(&fsm->current_state->event_handlers);
+    STATE_PRINTF("%s\n", __FUNCTION__);
+    default_event_handlers_set(event_handlers);
 
-    fsm->current_state->event_handlers.init = tokeniser_state_init_init_handler;
+    event_handlers->init = tokeniser_state_init_init_handler;
 }
 
 static void tokeniser_state_done_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -145,16 +157,16 @@ static void tokeniser_state_done_handler(fsm_class * const fsm, fsm_event const 
     tokeniser->result = tokeniser_result_already_done;
 }
 
-static void tokeniser_state_done_transition(fsm_class * const fsm)
+static void tokeniser_state_done_transition(event_handler_st * const event_handlers)
 {
     STATE_PRINTF("%s\n", __FUNCTION__);
-    default_event_handlers_set(&fsm->current_state->event_handlers);
+    default_event_handlers_set(event_handlers);
 
-    fsm->current_state->event_handlers.nul = tokeniser_state_done_handler;
-    fsm->current_state->event_handlers.space = tokeniser_state_done_handler;
-    fsm->current_state->event_handlers.single_quote = tokeniser_state_done_handler;
-    fsm->current_state->event_handlers.double_quote = tokeniser_state_done_handler;
-    fsm->current_state->event_handlers.regular_char = tokeniser_state_done_handler;
+    event_handlers->nul = tokeniser_state_done_handler;
+    event_handlers->space = tokeniser_state_done_handler;
+    event_handlers->single_quote = tokeniser_state_done_handler;
+    event_handlers->double_quote = tokeniser_state_done_handler;
+    event_handlers->regular_char = tokeniser_state_done_handler;
 }
 
 static void tokeniser_state_quoted_token_nul_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -171,8 +183,8 @@ static void tokeniser_state_quoted_token_nul_handler(fsm_class * const fsm, fsm_
     got_token(tokeniser,
               tokeniser->char_count,
               '\0');
-    Fsm_state_transition(fsm, tokeniser_state_done);
     tokeniser_result_set(tokeniser, tokeniser_result_incomplete_token);
+    fsm_state_transition(fsm, &tokeniser_state_done);
 }
 
 static void tokeniser_state_quoted_token_quote_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -189,7 +201,7 @@ static void tokeniser_state_quoted_token_quote_handler(fsm_class * const fsm, fs
     got_token(tokeniser,
               tokeniser->char_count + 1, /* Include the closing quote in the end index. */
               tokeniser->expected_close_quote);
-    Fsm_state_transition(fsm, tokeniser_state_no_token);
+    fsm_state_transition(fsm, &tokeniser_state_no_token);
 }
 
 static void tokeniser_state_quoted_token_other_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -206,29 +218,29 @@ static void tokeniser_state_quoted_token_other_handler(fsm_class * const fsm, fs
     str_extend(&tokeniser->current_token, event->current_char);
 }
 
-static void tokeniser_state_single_quoted_token_transition(fsm_class * const fsm)
+static void tokeniser_state_single_quoted_token_transition(event_handler_st * const event_handlers)
 {    
     STATE_PRINTF("%s\n", __FUNCTION__);
 
-    default_event_handlers_set(&fsm->current_state->event_handlers);
+    default_event_handlers_set(event_handlers);
 
-    fsm->current_state->event_handlers.nul = tokeniser_state_quoted_token_nul_handler;
-    fsm->current_state->event_handlers.space = tokeniser_state_quoted_token_other_handler;
-    fsm->current_state->event_handlers.single_quote = tokeniser_state_quoted_token_quote_handler;
-    fsm->current_state->event_handlers.double_quote = tokeniser_state_quoted_token_other_handler;
-    fsm->current_state->event_handlers.regular_char = tokeniser_state_quoted_token_other_handler;
+    event_handlers->nul = tokeniser_state_quoted_token_nul_handler;
+    event_handlers->space = tokeniser_state_quoted_token_other_handler;
+    event_handlers->single_quote = tokeniser_state_quoted_token_quote_handler;
+    event_handlers->double_quote = tokeniser_state_quoted_token_other_handler;
+    event_handlers->regular_char = tokeniser_state_quoted_token_other_handler;
 }
 
-static void tokeniser_state_double_quoted_token_transition(fsm_class * const fsm)
+static void tokeniser_state_double_quoted_token_transition(event_handler_st * const event_handlers)
 {
     STATE_PRINTF("%s\n", __FUNCTION__);
-    default_event_handlers_set(&fsm->current_state->event_handlers);
+    default_event_handlers_set(event_handlers);
 
-    fsm->current_state->event_handlers.nul = tokeniser_state_quoted_token_nul_handler;
-    fsm->current_state->event_handlers.space = tokeniser_state_quoted_token_other_handler;
-    fsm->current_state->event_handlers.single_quote = tokeniser_state_quoted_token_other_handler;
-    fsm->current_state->event_handlers.double_quote = tokeniser_state_quoted_token_quote_handler;
-    fsm->current_state->event_handlers.regular_char = tokeniser_state_quoted_token_other_handler;
+    event_handlers->nul = tokeniser_state_quoted_token_nul_handler;
+    event_handlers->space = tokeniser_state_quoted_token_other_handler;
+    event_handlers->single_quote = tokeniser_state_quoted_token_other_handler;
+    event_handlers->double_quote = tokeniser_state_quoted_token_quote_handler;
+    event_handlers->regular_char = tokeniser_state_quoted_token_other_handler;
 }
 
 static void tokeniser_state_quoted_regular_token_nul_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -248,8 +260,8 @@ static void tokeniser_state_quoted_regular_token_nul_handler(fsm_class * const f
     got_token(tokeniser,
               tokeniser->char_count,
               '\0');
-    Fsm_state_transition(fsm, tokeniser_state_done);
     tokeniser_result_set(tokeniser, tokeniser_result_incomplete_token);
+    fsm_state_transition(fsm, &tokeniser_state_done);
 }
 
 static void tokeniser_state_quoted_regular_token_quote_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -265,7 +277,7 @@ static void tokeniser_state_quoted_regular_token_quote_handler(fsm_class * const
     STATE_PRINTF("%s\n", __FUNCTION__);
 
     /* Received the matching close quote character. */
-    Fsm_state_transition(fsm, tokeniser_state_regular_token);
+    fsm_state_transition(fsm, &tokeniser_state_regular_token);
 }
 
 static void tokeniser_state_quoted_regular_token_other_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -285,30 +297,30 @@ static void tokeniser_state_quoted_regular_token_other_handler(fsm_class * const
     str_extend(&tokeniser->current_token, event->current_char);
 }
 
-static void tokeniser_state_single_quoted_regular_token_transition(fsm_class * const fsm)
+static void tokeniser_state_single_quoted_regular_token_transition(event_handler_st * const event_handlers)
 {
     STATE_PRINTF("%s\n", __FUNCTION__);
 
-    default_event_handlers_set(&fsm->current_state->event_handlers);
+    default_event_handlers_set(event_handlers);
 
-    fsm->current_state->event_handlers.nul = tokeniser_state_quoted_regular_token_nul_handler;
-    fsm->current_state->event_handlers.space = tokeniser_state_quoted_regular_token_other_handler;
-    fsm->current_state->event_handlers.single_quote = tokeniser_state_quoted_regular_token_quote_handler;
-    fsm->current_state->event_handlers.double_quote = tokeniser_state_quoted_regular_token_other_handler;
-    fsm->current_state->event_handlers.regular_char = tokeniser_state_quoted_regular_token_other_handler;
+    event_handlers->nul = tokeniser_state_quoted_regular_token_nul_handler;
+    event_handlers->space = tokeniser_state_quoted_regular_token_other_handler;
+    event_handlers->single_quote = tokeniser_state_quoted_regular_token_quote_handler;
+    event_handlers->double_quote = tokeniser_state_quoted_regular_token_other_handler;
+    event_handlers->regular_char = tokeniser_state_quoted_regular_token_other_handler;
 }
 
-static void tokeniser_state_double_quoted_regular_token_transition(fsm_class * const fsm)
+static void tokeniser_state_double_quoted_regular_token_transition(event_handler_st * const event_handlers)
 {
     STATE_PRINTF("%s\n", __FUNCTION__);
 
-    default_event_handlers_set(&fsm->current_state->event_handlers);
+    default_event_handlers_set(event_handlers);
 
-    fsm->current_state->event_handlers.nul = tokeniser_state_quoted_regular_token_nul_handler;
-    fsm->current_state->event_handlers.space = tokeniser_state_quoted_regular_token_other_handler;
-    fsm->current_state->event_handlers.single_quote = tokeniser_state_quoted_regular_token_other_handler;
-    fsm->current_state->event_handlers.double_quote = tokeniser_state_quoted_regular_token_quote_handler;
-    fsm->current_state->event_handlers.regular_char = tokeniser_state_quoted_regular_token_other_handler;
+    event_handlers->nul = tokeniser_state_quoted_regular_token_nul_handler;
+    event_handlers->space = tokeniser_state_quoted_regular_token_other_handler;
+    event_handlers->single_quote = tokeniser_state_quoted_regular_token_other_handler;
+    event_handlers->double_quote = tokeniser_state_quoted_regular_token_quote_handler;
+    event_handlers->regular_char = tokeniser_state_quoted_regular_token_other_handler;
 }
 
 static void tokeniser_state_regular_token_nul_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -327,8 +339,8 @@ static void tokeniser_state_regular_token_nul_handler(fsm_class * const fsm, fsm
     got_token(tokeniser,
               tokeniser->char_count,
               '\0');
-    Fsm_state_transition(fsm, tokeniser_state_done);
     tokeniser_result_set(tokeniser, tokeniser_result_ok);
+    fsm_state_transition(fsm, &tokeniser_state_done);
 }
 
 static void tokeniser_state_regular_token_single_quote_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -345,7 +357,7 @@ static void tokeniser_state_regular_token_single_quote_handler(fsm_class * const
     STATE_PRINTF("%s\n", __FUNCTION__);
 
     tokeniser->expected_close_quote = event->current_char;
-    Fsm_state_transition(fsm, tokeniser_state_single_quoted_regular_token);
+    fsm_state_transition(fsm, &tokeniser_state_single_quoted_regular_token);
 }
 
 static void tokeniser_state_regular_token_double_quote_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -362,7 +374,7 @@ static void tokeniser_state_regular_token_double_quote_handler(fsm_class * const
     STATE_PRINTF("%s\n", __FUNCTION__);
 
     tokeniser->expected_close_quote = event->current_char;
-    Fsm_state_transition(fsm, tokeniser_state_double_quoted_regular_token);
+    fsm_state_transition(fsm, &tokeniser_state_double_quoted_regular_token);
 }
 
 static void tokeniser_state_regular_token_space_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -382,7 +394,7 @@ static void tokeniser_state_regular_token_space_handler(fsm_class * const fsm, f
               tokeniser->char_count,
               '\0');
     current_token_free(tokeniser);
-    Fsm_state_transition(fsm, tokeniser_state_no_token);
+    fsm_state_transition(fsm, &tokeniser_state_no_token);
 }
 
 static void tokeniser_state_regular_token_regular_char_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -401,17 +413,17 @@ static void tokeniser_state_regular_token_regular_char_handler(fsm_class * const
     str_extend(&tokeniser->current_token, event->current_char);
 }
 
-static void tokeniser_state_regular_token_transition(fsm_class * const fsm)
+static void tokeniser_state_regular_token_transition(event_handler_st * const event_handlers)
 {
     STATE_PRINTF("%s\n", __FUNCTION__);
 
-    default_event_handlers_set(&fsm->current_state->event_handlers);
+    default_event_handlers_set(event_handlers);
 
-    fsm->current_state->event_handlers.nul = tokeniser_state_regular_token_nul_handler;
-    fsm->current_state->event_handlers.space = tokeniser_state_regular_token_space_handler;
-    fsm->current_state->event_handlers.single_quote = tokeniser_state_regular_token_single_quote_handler;
-    fsm->current_state->event_handlers.double_quote = tokeniser_state_regular_token_double_quote_handler;
-    fsm->current_state->event_handlers.regular_char = tokeniser_state_regular_token_regular_char_handler;
+    event_handlers->nul = tokeniser_state_regular_token_nul_handler;
+    event_handlers->space = tokeniser_state_regular_token_space_handler;
+    event_handlers->single_quote = tokeniser_state_regular_token_single_quote_handler;
+    event_handlers->double_quote = tokeniser_state_regular_token_double_quote_handler;
+    event_handlers->regular_char = tokeniser_state_regular_token_regular_char_handler;
 }
 
 static void tokeniser_state_no_token_nul_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -426,7 +438,7 @@ static void tokeniser_state_no_token_nul_handler(fsm_class * const fsm, fsm_even
     STATE_PRINTF("%s\n", __FUNCTION__);
 
     tokeniser_result_set(tokeniser, tokeniser_result_ok);
-    Fsm_state_transition(fsm, tokeniser_state_done);
+    fsm_state_transition(fsm, &tokeniser_state_done);
 }
 
 static void tokeniser_state_no_token_space_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -455,7 +467,7 @@ static void tokeniser_state_no_token_single_quote_handler(fsm_class * const fsm,
 
     tokeniser->expected_close_quote = event->current_char;
     current_token_init(tokeniser, '\0');
-    Fsm_state_transition(fsm, tokeniser_state_single_quoted_token);
+    fsm_state_transition(fsm, &tokeniser_state_single_quoted_token);
 }
 
 static void tokeniser_state_no_token_double_quote_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -471,7 +483,7 @@ static void tokeniser_state_no_token_double_quote_handler(fsm_class * const fsm,
 
     tokeniser->expected_close_quote = event->current_char;
     current_token_init(tokeniser, '\0');
-    Fsm_state_transition(fsm, tokeniser_state_double_quoted_token);
+    fsm_state_transition(fsm, &tokeniser_state_double_quoted_token);
 }
 
 static void tokeniser_state_no_token_regular_char_handler(fsm_class * const fsm, fsm_event const * const event_fsm)
@@ -486,20 +498,20 @@ static void tokeniser_state_no_token_regular_char_handler(fsm_class * const fsm,
     STATE_PRINTF("%s\n", __FUNCTION__);
 
     current_token_init(tokeniser, (char)event->current_char);
-    Fsm_state_transition(fsm, tokeniser_state_regular_token);
+    fsm_state_transition(fsm, &tokeniser_state_regular_token);
 }
 
-static void tokeniser_state_no_token_transition(fsm_class * const fsm)
+static void tokeniser_state_no_token_transition(event_handler_st * const event_handlers)
 {
     STATE_PRINTF("%s\n", __FUNCTION__);
 
-    default_event_handlers_set(&fsm->current_state->event_handlers);
+    default_event_handlers_set(event_handlers);
 
-    fsm->current_state->event_handlers.nul = tokeniser_state_no_token_nul_handler;
-    fsm->current_state->event_handlers.space = tokeniser_state_no_token_space_handler;
-    fsm->current_state->event_handlers.single_quote = tokeniser_state_no_token_single_quote_handler;
-    fsm->current_state->event_handlers.double_quote = tokeniser_state_no_token_double_quote_handler;
-    fsm->current_state->event_handlers.regular_char = tokeniser_state_no_token_regular_char_handler;
+    event_handlers->nul = tokeniser_state_no_token_nul_handler;
+    event_handlers->space = tokeniser_state_no_token_space_handler;
+    event_handlers->single_quote = tokeniser_state_no_token_single_quote_handler;
+    event_handlers->double_quote = tokeniser_state_no_token_double_quote_handler;
+    event_handlers->regular_char = tokeniser_state_no_token_regular_char_handler;
 }
 
 void tokeniser_dispatch(tokeniser_st * const tokeniser, tokeniser_event_st const * const tokeniser_event)
@@ -512,22 +524,22 @@ void tokeniser_dispatch(tokeniser_st * const tokeniser, tokeniser_event_st const
     switch (tokeniser_event->code)
     {
         case event_init:
-            fsm->current_state->event_handlers.init(fsm, event_fsm);
+            fsm->current_state.event_handlers->init(fsm, event_fsm);
             break;
         case event_nul:
-            fsm->current_state->event_handlers.nul(fsm, event_fsm);
+            fsm->current_state.event_handlers->nul(fsm, event_fsm);
             break;
         case event_space:
-            fsm->current_state->event_handlers.space(fsm, event_fsm);
+            fsm->current_state.event_handlers->space(fsm, event_fsm);
             break;
         case event_single_quote:
-            fsm->current_state->event_handlers.single_quote(fsm, event_fsm);
+            fsm->current_state.event_handlers->single_quote(fsm, event_fsm);
             break;
         case event_double_quote:
-            fsm->current_state->event_handlers.double_quote(fsm, event_fsm);
+            fsm->current_state.event_handlers->double_quote(fsm, event_fsm);
             break;
         case event_regular_char:
-            fsm->current_state->event_handlers.regular_char(fsm, event_fsm);
+            fsm->current_state.event_handlers->regular_char(fsm, event_fsm);
             break;
     }
 }
@@ -537,7 +549,7 @@ void tokeniser_init_fsm(tokeniser_st * const tokeniser)
     tokeniser_event_st event;
     fsm_class * const fsm = TOKENISER_TO_FSM(tokeniser);
 
-    Fsm_constructor(fsm, tokeniser_state_init);
+    Fsm_constructor(fsm, &tokeniser_state_init, &event_handlers);
     event.code = event_init;
     tokeniser_dispatch(tokeniser, &event);
 }
