@@ -21,9 +21,20 @@ typedef enum event_code_t
     event_regular_char
 } event_code_t;
 
+struct fsm_event_handlers_st
+{
+    fsm_state_handler init;
+    fsm_state_handler nul;
+    fsm_state_handler space;
+    fsm_state_handler single_quote;
+    fsm_state_handler double_quote;
+    fsm_state_handler regular_char;
+};
+
 struct tokeniser_st
 {
     fsm_class fsm; /* The base FSM 'class' */
+    fsm_event_handlers_st event_handlers; /* The event handlers for this FSM. */
 
     new_token_cb user_callback;
     void * user_arg;

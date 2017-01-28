@@ -17,7 +17,7 @@ typedef struct fsm_class fsm_class;
  * Done this way as the FSM class doesn't need to know the 
  * internals of the event_handler_st, just that there is one. 
  */
-typedef struct event_handler_st event_handler_st;
+typedef struct fsm_event_handlers_st fsm_event_handlers_st;
 
 /* The user should define functions matching these types for 
  * each desired state. Note that exit and entry handlers are 
@@ -28,7 +28,7 @@ typedef struct event_handler_st event_handler_st;
 typedef void (* fsm_state_handler)(fsm_class * const fsm, fsm_event const * const event_fsm);
 typedef void (* fsm_entry_handler)(fsm_class * const fsm);
 typedef void (* fsm_exit_handler)(fsm_class * const fsm);
-typedef void (* fsm_transition_handler)(event_handler_st * const event_handlers);
+typedef void (* fsm_transition_handler)(fsm_event_handlers_st * const event_handlers);
 
 /* The application is expected to define one of these for each 
  * state. The DEFINE_STATE macro below can be used to simplify 
@@ -45,12 +45,12 @@ typedef struct
 typedef struct
 {
     fsm_state_config const * config;
-    event_handler_st * event_handlers;
+    fsm_event_handlers_st * event_handlers;
 } fsm_state; 
 
-/* Although it doesn't contain anything useful, and fsm_event 
- * structure is required in each derived event class fsm_state 
- * handler type definition has a proper event type. 
+/* Although it doesn't contain anything useful, an fsm_event 
+ * structure is required in each derived event class so that the
+ * fsm_state handler type definition has a proper event type. 
  */
 struct fsm_event
 {
@@ -76,11 +76,10 @@ void fsm_state_transition(fsm_class * const fsm, fsm_state_config const * const 
 
 
 /* "inlined" methods of FSM class */
-#define Fsm_constructor(fsm, init_, handlers) do \
+#define Fsm_constructor(fsm, handlers) do \
             { \
                 (fsm)->current_state.config = NULL; \
                 (fsm)->current_state.event_handlers = (handlers); \
-                fsm_state_transition((fsm), (init_)); \
             } \
             while (0)
 
