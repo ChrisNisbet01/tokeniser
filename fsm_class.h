@@ -25,7 +25,7 @@ typedef struct fsm_event_handlers_st fsm_event_handlers_st;
  * handler is called whenever the state machine transitions to 
  * the state specified in fsm_state_transition().
  */
-typedef void (* fsm_state_handler)(fsm_class * const fsm, fsm_event const * const event_fsm);
+typedef void (* fsm_event_handler)(fsm_class * const fsm, fsm_event const * const event_fsm);
 typedef void (* fsm_entry_handler)(fsm_class * const fsm);
 typedef void (* fsm_exit_handler)(fsm_class * const fsm);
 typedef void (* fsm_transition_handler)(fsm_event_handlers_st * const event_handlers);
@@ -36,8 +36,8 @@ typedef void (* fsm_transition_handler)(fsm_event_handlers_st * const event_hand
  */
 typedef struct
 {
-    fsm_entry_handler entry;
-    fsm_exit_handler exit;
+    fsm_entry_handler entry_handler;
+    fsm_exit_handler exit_handler;
     fsm_transition_handler transition_handler;
     char const * name;
 } fsm_state_config;
@@ -48,9 +48,9 @@ typedef struct
     fsm_event_handlers_st * event_handlers;
 } fsm_state; 
 
-/* Although it doesn't contain anything useful, an fsm_event 
- * structure is required in each derived event class so that the
- * fsm_state handler type definition has a proper event type. 
+/* Although it doesn't contain anything useful, and fsm_event 
+ * structure is required in each derived event class fsm_state 
+ * handler type definition has a proper event type. 
  */
 struct fsm_event
 {
@@ -68,8 +68,8 @@ void fsm_state_transition(fsm_class * const fsm, fsm_state_config const * const 
 /* Helper macro to create a state definition. */
 #define DEFINE_STATE(STATE, ENTRY, EXIT, TRANSITION) \
     fsm_state_config STATE  = { \
-        .entry = ENTRY, \
-        .exit = EXIT, \
+        .entry_handler = ENTRY, \
+        .exit_handler = EXIT, \
         .transition_handler = TRANSITION, \
         .name = #STATE \
     }

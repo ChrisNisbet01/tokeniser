@@ -23,12 +23,12 @@ typedef enum event_code_t
 
 struct fsm_event_handlers_st
 {
-    fsm_state_handler init;
-    fsm_state_handler nul;
-    fsm_state_handler space;
-    fsm_state_handler single_quote;
-    fsm_state_handler double_quote;
-    fsm_state_handler regular_char;
+    fsm_event_handler init;
+    fsm_event_handler nul;
+    fsm_event_handler space;
+    fsm_event_handler single_quote;
+    fsm_event_handler double_quote;
+    fsm_event_handler regular_char;
 };
 
 struct tokeniser_st

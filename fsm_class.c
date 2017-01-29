@@ -13,9 +13,9 @@ void fsm_state_transition(fsm_class * const fsm, fsm_state_config const * const 
      * transition. Note that the entry and exit actions are 
      * optional, so may be NULL. 
      */
-    if (fsm->current_state.config != NULL && fsm->current_state.config->exit != NULL)
+    if (fsm->current_state.config != NULL && fsm->current_state.config->exit_handler != NULL)
     {
-        fsm->current_state.config->exit(fsm);
+        fsm->current_state.config->exit_handler(fsm);
     }
 
     /* Change the current state. */
@@ -23,8 +23,8 @@ void fsm_state_transition(fsm_class * const fsm, fsm_state_config const * const 
     fsm->current_state.config->transition_handler(fsm->current_state.event_handlers);
 
     /* Execute the entry action for the new state. */
-    if (fsm->current_state.config->entry != NULL)
+    if (fsm->current_state.config->entry_handler != NULL)
     {
-        fsm->current_state.config->entry(fsm);
+        fsm->current_state.config->entry_handler(fsm);
     }
 }
