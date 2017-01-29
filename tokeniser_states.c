@@ -512,22 +512,22 @@ void tokeniser_dispatch(tokeniser_st * const tokeniser, tokeniser_event_st const
     switch (tokeniser_event->code)
     {
         case event_init:
-            fsm->current_state.event_handlers->init(fsm, event_fsm);
+            Fsm_dispatch(fsm, init, event_fsm);
             break;
         case event_nul:
-            fsm->current_state.event_handlers->nul(fsm, event_fsm);
+            Fsm_dispatch(fsm, nul, event_fsm);
             break;
         case event_space:
-            fsm->current_state.event_handlers->space(fsm, event_fsm);
+            Fsm_dispatch(fsm, space, event_fsm);
             break;
         case event_single_quote:
-            fsm->current_state.event_handlers->single_quote(fsm, event_fsm);
+            Fsm_dispatch(fsm, single_quote, event_fsm);
             break;
         case event_double_quote:
-            fsm->current_state.event_handlers->double_quote(fsm, event_fsm);
+            Fsm_dispatch(fsm, double_quote, event_fsm);
             break;
         case event_regular_char:
-            fsm->current_state.event_handlers->regular_char(fsm, event_fsm);
+            Fsm_dispatch(fsm, regular_char, event_fsm);
             break;
     }
 }

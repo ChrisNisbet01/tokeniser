@@ -83,6 +83,8 @@ void fsm_state_transition(fsm_class * const fsm, fsm_state_config const * const 
             } \
             while (0)
 
+#define Fsm_dispatch(fsm, handler, event) fsm->current_state.event_handlers->handler((fsm), (event))
+
 #define Fsm_state_name(state) (state)->config->name
 #define Fsm_current_state(fsm) &(fsm)->current_state
 #define Fsm_current_state_name(fsm) Fsm_state_name(Fsm_current_state((fsm)))
